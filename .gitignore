@@ -1,4 +1,5 @@
 /configuration/dev.properties
+/.env
 
 ### Java ###
 *.class
