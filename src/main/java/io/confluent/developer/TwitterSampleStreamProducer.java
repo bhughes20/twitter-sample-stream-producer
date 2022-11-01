@@ -1,13 +1,14 @@
 package io.confluent.developer;
 
+import io.confluent.developer.avro.TweetRecord;
+import org.apache.commons.lang3.SerializationException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.http.HttpEntity;
@@ -56,26 +57,33 @@ public class TwitterSampleStreamProducer {
         return entity;
     }
 
-    private static void produceToTopic (HttpEntity entity, Producer<String, String> producer, String topic) throws IOException {
+    private static void produceToTopic (HttpEntity entity, Producer<String, TweetRecord> producer, String topic) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader((entity.getContent())));
         String line = reader.readLine();
         ObjectMapper objectMapper = new ObjectMapper();
 
-        while (line != null) {
+        while (!ObjectUtils.isEmpty(line)) {
             JsonNode jsonNode = objectMapper.readTree(line);
-            String key = jsonNode.get("data").get("id").toString();
-            String value = jsonNode.get("data").toString();
-            producer.send(new ProducerRecord<String, String>(topic, key, value), new Callback() {
-                @Override
-                public void onCompletion(RecordMetadata m, Exception e) {
-                    if (e != null) {
+            String key = jsonNode.get("data").get("id").asText();
+            JsonNode record = jsonNode.get("data");
+            TweetRecord value = TweetRecord.newBuilder()
+                    .setAuthorId(record.get("author_id").asText())
+                    .setCreatedAt(record.get("created_at").asText())
+                    .setId(record.get("id").asText())
+                    .setText(record.get("text").asText())
+                    .build();
+            try {
+                producer.send(new ProducerRecord<>(topic, key, value), (metadata, e) -> {
+                    if (!ObjectUtils.isEmpty(e)) {
                         e.printStackTrace();
                     } else {
-                        System.out.printf("Produced record to topic %s partition [%d] @ offset %d%n", m.topic(), m.partition(), m.offset());
+                        System.out.printf("Produced record to topic %s partition [%d] @ offset %d%n", metadata.topic(), metadata.partition(), metadata.offset());
                     }
-                }
-            });
-            line = reader.readLine();
+                });
+                line = reader.readLine();
+            } catch (SerializationException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -98,7 +106,7 @@ public class TwitterSampleStreamProducer {
 
         final Properties props = TwitterSampleStreamProducer.loadProperties(args[0]);
         final String topic = props.getProperty("output.topic.name");
-        final Producer<String, String> producer = new KafkaProducer<>(props);
+        final Producer<String, TweetRecord> producer = new KafkaProducer<>(props);
 
         Dotenv dotenv = Dotenv.load();
         String bearerToken = dotenv.get("BEARER_TOKEN");
@@ -111,7 +119,7 @@ public class TwitterSampleStreamProducer {
                 produceToTopic(responseEntity, producer, topic);
             }
         } else {
-            System.out.println("Please provide a valid bearer token to access the Twitter API");
+            System.out.println("Please set a valid bearer token in a .env file to access the Twitter API");
         }
     }
 }

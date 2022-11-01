@@ -1,0 +1,23 @@
+{
+    "name": "TweetRecord",
+    "namespace": "io.confluent.developer.avro",
+    "type": "record",
+    "fields": [
+    {
+      "name": "author_id",
+      "type": "string"
+    },
+    {
+      "name": "created_at",
+      "type": "string"
+    },
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "text",
+      "type": "string"
+    }
+  ]
+}
