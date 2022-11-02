@@ -1,6 +1,6 @@
 package io.confluent.developer;
 
-import io.confluent.developer.avro.TweetRecord;
+import io.confluent.developer.avro.Tweet;
 import org.apache.commons.lang3.SerializationException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -57,20 +57,22 @@ public class TwitterSampleStreamProducer {
         return entity;
     }
 
-    private static void produceToTopic (HttpEntity entity, Producer<String, TweetRecord> producer, String topic) throws IOException {
+    private static void produceToTopic (HttpEntity entity, Producer<String, Tweet> producer, String topic) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader((entity.getContent())));
         String line = reader.readLine();
         ObjectMapper objectMapper = new ObjectMapper();
 
         while (!ObjectUtils.isEmpty(line)) {
             JsonNode jsonNode = objectMapper.readTree(line);
-            String key = jsonNode.get("data").get("id").asText();
-            JsonNode record = jsonNode.get("data");
-            TweetRecord value = TweetRecord.newBuilder()
-                    .setAuthorId(record.get("author_id").asText())
-                    .setCreatedAt(record.get("created_at").asText())
-                    .setId(record.get("id").asText())
-                    .setText(record.get("text").asText())
+            String key = jsonNode.path("data").path("id").asText();
+            JsonNode record = jsonNode.path("data");
+            Tweet value = Tweet.newBuilder()
+                    .setId(record.path("id").asText())
+                    .setConversationId(record.path("conversation_id").asText())
+                    .setAuthorId(record.path("author_id").asText())
+                    .setCreatedAt(record.path("created_at").asText())
+                    .setText(record.path("text").asText())
+                    .setPossiblySensitive(record.path("possibly_sensitive").asBoolean())
                     .build();
             try {
                 producer.send(new ProducerRecord<>(topic, key, value), (metadata, e) -> {
@@ -106,11 +108,11 @@ public class TwitterSampleStreamProducer {
 
         final Properties props = TwitterSampleStreamProducer.loadProperties(args[0]);
         final String topic = props.getProperty("output.topic.name");
-        final Producer<String, TweetRecord> producer = new KafkaProducer<>(props);
+        final Producer<String, Tweet> producer = new KafkaProducer<>(props);
 
         Dotenv dotenv = Dotenv.load();
         String bearerToken = dotenv.get("BEARER_TOKEN");
-        String uri = "https://api.twitter.com/2/tweets/sample/stream?tweet.fields=created_at&expansions=author_id";
+        String uri = "https://api.twitter.com/2/tweets/sample/stream?tweet.fields=id,conversation_id,created_at,author_id,text,possibly_sensitive";
 
         if (!ObjectUtils.isEmpty(bearerToken)) {
             HttpResponse response = getTwitterSampleStreamResponse(bearerToken, uri);

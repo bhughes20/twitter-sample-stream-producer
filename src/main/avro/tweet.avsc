@@ -1,10 +1,14 @@
 {
-    "name": "TweetRecord",
+    "name": "Tweet",
     "namespace": "io.confluent.developer.avro",
     "type": "record",
     "fields": [
     {
-      "name": "author_id",
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "conversation_id",
       "type": "string"
     },
     {
@@ -12,12 +16,16 @@
       "type": "string"
     },
     {
-      "name": "id",
+      "name": "author_id",
       "type": "string"
     },
     {
       "name": "text",
       "type": "string"
+    },
+    {
+      "name": "possibly_sensitive",
+      "type": "boolean"
     }
   ]
 }
