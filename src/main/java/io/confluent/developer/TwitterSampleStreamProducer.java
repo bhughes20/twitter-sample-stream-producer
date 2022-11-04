@@ -118,7 +118,12 @@ public class TwitterSampleStreamProducer {
             HttpResponse response = getTwitterSampleStreamResponse(bearerToken, uri);
             HttpEntity responseEntity = getResponseEntity(response);
             if (!ObjectUtils.isEmpty(responseEntity)) {
-                produceToTopic(responseEntity, producer, topic);
+                try{
+                    produceToTopic(responseEntity, producer, topic);
+                } finally {
+                    producer.flush();
+                    producer.close();
+                }
             }
         } else {
             System.out.println("Please set a valid bearer token in a .env file to access the Twitter API");
